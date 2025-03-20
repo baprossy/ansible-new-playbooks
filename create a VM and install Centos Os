@@ -1,0 +1,46 @@
+---
+- name: Deploy CentOS Virtual Machine
+  hosts: localhost
+  become: yes
+  tasks:
+    - name: Install required packages
+      yum:
+        name:
+          - libvirt
+          - qemu-kvm
+          - virt-install
+          - bridge-utils
+        state: present
+
+    - name: Ensure libvirtd service is running
+      service:
+        name: libvirtd
+        state: started
+        enabled: yes
+
+    - name: Create a disk image for the VM
+      command: >
+        qemu-img create -f qcow2 /var/lib/libvirt/images/centos_vm.qcow2 20G
+      args:
+        creates: /var/lib/libvirt/images/centos_vm.qcow2
+
+    - name: Install CentOS VM
+      command: >
+        virt-install \
+        --name centos_vm \
+        --ram 2048 \
+        --vcpus 2 \
+        --disk path=/var/lib/libvirt/images/centos_vm.qcow2,format=qcow2 \
+        --os-type linux \
+        --os-variant centos7.0 \
+        --network bridge=virbr0 \
+        --graphics none \
+        --console pty,target_type=serial \
+        --location http://mirror.centos.org/centos/7/os/x86_64/ \
+        --extra-args 'console=ttyS0,115200n8 serial'
+      async: 600
+      poll: 0
+
+    - name: Wait for VM to be ready
+      pause:
+        minutes: 10
