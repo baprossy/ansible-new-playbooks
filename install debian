@@ -1,0 +1,36 @@
+---
+- name: Create a Virtual Machine with KVM
+  hosts: localhost
+  become: yes
+  tasks:
+
+    - name: Install required packages
+      apt:
+        name:
+          - qemu-kvm
+          - libvirt-daemon-system
+          - virtinst
+          - cloud-image-utils
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Download Ubuntu cloud image
+      get_url:
+        url: "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img"
+        dest: "/var/lib/libvirt/images/ubuntu-cloud.img"
+
+    - name: Create VM disk from cloud image
+      command: >
+        qemu-img create -f qcow2 -b /var/lib/libvirt/images/ubuntu-cloud.img
+        /var/lib/libvirt/images/my_vm.qcow2 10G
+      args:
+        creates: "/var/lib/libvirt/images/my_vm.qcow2"
+
+    - name: Define and start the virtual machine
+      command: >
+        virt-install --name=my_vm
+        --vcpus=2 --memory=2048
+        --disk path=/var/lib/libvirt/images/my_vm.qcow2,format=qcow2
+        --os-variant=ubuntu22.04
+        --network network=default
+        --import --noautoconsole
